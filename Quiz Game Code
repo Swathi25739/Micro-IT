@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Who Wants to Be a Millionaire</title>
+  <style>
+    /* Basic page styling */
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b3d91;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+    .game-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+      max-width: 1200px;
+      margin: 20px auto;
+      gap: 20px;
+    }
+    /* Question Panel styling */
+    .question-panel {
+      background: #1c2a48;
+      border-radius: 10px;
+      padding: 20px;
+      flex: 3;
+      min-width: 300px;
+    }
+    .question {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .option {
+      flex: 1 1 calc(50% - 20px);
+      background: #0a74da;
+      padding: 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.3s, background-color 0.3s;
+    }
+    .option:hover {
+      transform: scale(1.05);
+      background: #4e9fff;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .restart-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #d32f2f;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .restart-btn:hover {
+      background: #9a0007;
+    }
+    
+    /* Money Ladder styling */
+    .money-ladder {
+      background: #162b40;
+      border-radius: 10px;
+      padding: 20px;
+      flex: 1;
+      min-width: 200px;
+      max-width: 300px;
+      height: fit-content;
+    }
+    .money-level {
+      padding: 10px;
+      margin: 5px 0;
+      text-align: center;
+      border-radius: 5px;
+      background: #23344d;
+    }
+    .money-level.active {
+      background: #ffc107;
+      color: black;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <!-- Question Panel -->
+    <div class="question-panel">
+      <div id="question" class="question">Question text</div>
+      <div id="options" class="options">
+        <!-- Options will be generated here -->
+      </div>
+      <div id="result" class="result"></div>
+      <button id="restart-btn" class="restart-btn" onclick="restartGame()" style="display:none;">Restart Game</button>
+    </div>
+    <!-- Money Ladder Panel -->
+    <div class="money-ladder" id="money-ladder">
+      <!-- Money levels inserted dynamically -->
+    </div>
+  </div>
+
+  <script>
+    // Define question pools for three difficulty levels
+    const easyQuestions = [
+      { question: "What is 2+2?", options: ["3", "4", "5", "6"], answer: "4" },
+      { question: "Which animal barks?", options: ["Cat", "Dog", "Horse", "Cow"], answer: "Dog" },
+      { question: "What color is the sky?", options: ["Blue", "Red", "Green", "Yellow"], answer: "Blue" },
+      { question: "Which fruit is red and sweet?", options: ["Banana", "Apple", "Grapes", "Kiwi"], answer: "Apple" },
+      { question: "How many days are in a week?", options: ["5", "6", "7", "8"], answer: "7" }
+    ];
+
+    const mediumQuestions = [
+      { question: "What is the capital of France?", options: ["Berlin", "Paris", "Madrid", "Rome"], answer: "Paris" },
+      { question: "Which planet is known as the Red Planet?", options: ["Earth", "Mars", "Jupiter", "Venus"], answer: "Mars" },
+      { question: "Who wrote 'Hamlet'?", options: ["Dostoevsky", "Shakespeare", "Hemingway", "Tolstoy"], answer: "Shakespeare" },
+      { question: "Which continent is Nigeria in?", options: ["Asia", "Africa", "Europe", "South America"], answer: "Africa" },
+      { question: "What gas do plants absorb from the atmosphere?", options: ["Oxygen", "Nitrogen", "Carbon Dioxide", "Helium"], answer: "Carbon Dioxide" }
+    ];
+
+    const hardQuestions = [
+      { question: "What is the chemical symbol for Gold?", options: ["Ag", "Au", "Gd", "Go"], answer: "Au" },
+      { question: "Who developed the theory of relativity?", options: ["Newton", "Einstein", "Bohr", "Tesla"], answer: "Einstein" },
+      { question: "Which element has the atomic number 1?", options: ["Helium", "Hydrogen", "Carbon", "Oxygen"], answer: "Hydrogen" },
+      { question: "In which year did World War II end?", options: ["1945", "1939", "1918", "1963"], answer: "1945" },
+      { question: "What is the square root of 144?", options: ["10", "11", "12", "13"], answer: "12" }
+    ];
+
+    // Define money ladder (7 levels in this example)
+    const moneyLevels = [
+      "$100",
+      "$200",
+      "$300",
+      "$500",
+      "$1,000",
+      "$2,000",
+      "$4,000"
+    ];
+
+    // Variables to hold the current game's questions and state
+    let currentGameQuestions = []; // Game session array, arranged in increasing difficulty
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    // Grab DOM elements
+    const questionElement = document.getElementById("question");
+    const optionsElement = document.getElementById("options");
+    const resultElement = document.getElementById("result");
+    const moneyLadderElement = document.getElementById("money-ladder");
+    const restartBtn = document.getElementById("restart-btn");
+
+    // Utility: Shuffle an array randomly
+    function shuffleArray(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    // Build the money ladder display
+    function loadMoneyLadder() {
+      moneyLadderElement.innerHTML = "";
+      for (let i = moneyLevels.length - 1; i >= 0; i--) {
+        const levelDiv = document.createElement("div");
+        levelDiv.className = "money-level";
+        levelDiv.id = "money-level-" + i;
+        levelDiv.textContent = moneyLevels[i];
+        moneyLadderElement.appendChild(levelDiv);
+      }
+    }
+
+    // Highlight the money level corresponding to the current question index
+    function highlightMoneyLevel(index) {
+      const levels = document.querySelectorAll(".money-level");
+      levels.forEach(level => level.classList.remove("active"));
+      const activeLevel = document.getElementById("money-level-" + index);
+      if (activeLevel) {
+        activeLevel.classList.add("active");
+      }
+    }
+
+    // Prepare the game session questions with increased difficulty:
+    // First 3 questions: Easy, next 2: Medium, last 2: Hard.
+    function prepareGameQuestions() {
+      const selectedEasy = shuffleArray([...easyQuestions]).slice(0, 3);
+      const selectedMedium = shuffleArray([...mediumQuestions]).slice(0, 2);
+      const selectedHard = shuffleArray([...hardQuestions]).slice(0, 2);
+      currentGameQuestions = [...selectedEasy, ...selectedMedium, ...selectedHard];
+      currentQuestionIndex = 0;
+    }
+
+    // Load the current question and its options into the DOM
+    function loadQuestion() {
+      if (currentQuestionIndex >= currentGameQuestions.length) {
+        resultElement.textContent = "Congratulations! You have won " + moneyLevels[moneyLevels.length - 1] + "!";
+        restartBtn.style.display = "block";
+        return;
+      }
+
+      highlightMoneyLevel(currentQuestionIndex);
+      const currentQuestion = currentGameQuestions[currentQuestionIndex];
+      questionElement.innerHTML = "<strong>" + currentQuestion.question + "</strong>";
+      optionsElement.innerHTML = "";
+      resultElement.textContent = "";
+
+      currentQuestion.options.forEach(option => {
+        const btn = document.createElement("button");
+        btn.className = "option";
+        btn.textContent = option;
+        btn.onclick = () => checkAnswer(option);
+        optionsElement.appendChild(btn);
+      });
+    }
+
+    // Check whether the selected answer is correct
+    function checkAnswer(selectedOption) {
+      const currentQuestion = currentGameQuestions[currentQuestionIndex];
+      if (selectedOption === currentQuestion.answer) {
+        resultElement.textContent = "Correct!";
+        score++;
+        currentQuestionIndex++;
+        setTimeout(loadQuestion, 1000);
+      } else {
+        resultElement.textContent = "Wrong! The correct answer was: " + currentQuestion.answer;
+        restartBtn.style.display = "block";
+      }
+    }
+
+    // Restart the game: generate a new set of questions with increased difficulty and reset state
+    function restartGame() {
+      prepareGameQuestions();
+      score = 0;
+      restartBtn.style.display = "none";
+      resultElement.textContent = "";
+      loadQuestion();
+    }
+
+    // Start the game
+    loadMoneyLadder();
+    prepareGameQuestions();
+    loadQuestion();
+  </script>
+</body>
+</html>
